@@ -63,6 +63,182 @@ RV64GCBK是RISC-V指令集架构（ISA）的一组扩展。每个字母代表一
 
 <img src="images/XiangShan/frontend.webp" alt="frontend" style="zoom:80%;" />
 
+分支预测单元提供取指请求，写入一个队列，该队列将其发往取指单元，送入指令缓存。 取出的指令码通过预译码初步检查分支预测的错误并及时冲刷预测流水线，检查后的指令送入指令缓冲并传给译码模块，最终形成后端的指令供给。
+
 
 
 ### 分支预测 (Branch Prediction)
+
+<img src="images/XiangShan/bpu.svg" alt="bpu" style="zoom:80%;" />
+
+多级混合预测架构
+
+| 下一行预测器(Next Line Predictor, NLP) | uBTB(micro BTB)                       |
+| -------------------------------------- | ------------------------------------- |
+| 精确预测器(Accurate Predictor, APD)    | FTB<br />TAGE-SC<br />ITTAGE<br />RAS |
+
+NLP: no bubble, 下一拍出预测结果
+
+FTB、TAGE、RAS: 延迟2拍
+
+SC、ITTAGE: 延迟3拍
+
+三级流水线，覆盖预测器(overriding predictor)
+
+
+
+### 取指目标队列(Fetch Target Queue, FTP)
+
+
+
+<img src="images/XiangShan/ftq.svg" alt="ftq" style="zoom:80%;" />
+
+FTQ是分支预测和取指单元之间的缓冲队列。**暂存BPU预测的取指目标**
+
+
+
+### 取指单元(Instruction Fetch Unit, IFU)
+
+
+
+<img src="images/XiangShan/IFU.webp" alt="IFU" style="zoom:80%;" />
+
+
+
+### 指令缓存(Instruction Cache, ICache)
+
+
+
+<img src="images/XiangShan/ICache.webp" alt="ICache" style="zoom:80%;" />
+
+
+
+
+
+### 译码单元 (Decode Unit)
+
+指令从指令缓存中取出，送进指令缓冲（队列）中暂存，然后以每周期 6 条的的速度送入译码单元译码，再传给下一个流水级。
+
+
+
+
+
+## 后端
+
+### 总体架构
+
+处理器的流水线后端负责指令的重命名与乱序执行。
+
+香山处理器后端可以分为 CtrlBlock、IntBlock、FloatBlock、Memblock 4 个部分， CtrlBlock 负责指令的译码、重命名和分派， IntBlock、FloatBlock、MemBlock 分别负责整数、浮点、访存指令的乱序执行。
+
+
+
+<img src="images/XiangShan/backend.svg" alt="backend" style="zoom:80%;" />
+
+
+
+- CtrlBlock
+  - 译码 / 重命名 / 分派宽度 = 6
+  - 发射前读寄存器堆
+- IntBlock
+  - 192 项物理寄存器(32*6)
+  - 4 * ALU + 2 * MUL/DIV + 1 * CSR/JMP
+- FloatBlock
+  - 192 项物理寄存器
+  - 4 * FMAC + 2 * FMISC
+- MemBlock
+  - 2 * LOAD + 2 * STORE （其中 STORE 分为 data 和 address 独立进行运算）
+
+
+
+### 重命名 Rename
+
+在乱序处理器中，重命名阶段负责管理和维护逻辑寄存器与物理寄存器之间的映射，通过对逻辑寄存器的重命名，实现指令间依赖的消除，并完成乱序调度。
+
+
+
+重命名表的作用是维护逻辑寄存器与物理寄存器之间的映射关系，其操作端口包括一组读口 `readPorts` 和一组写口 `specWritePorts`。
+
+
+
+### 派遣 Dispatch
+
+两级流水级，第一级 `Dispatch` 负责将指令分类并发送至定点、浮点与访存三类派遣队列（Dispatch Queue），第二级 `Dispatch2Rs` 负责将对应类型的指令进一步根据不同的运算操作类型派遣至不同的保留站。
+
+
+
+### 重定序缓冲 Re-Order Buffer (ROB)
+
+
+
+## 访存子系统
+
+
+
+### 总体架构
+
+
+
+<img src="images/XiangShan/nanhu-memblock.webp" alt="nanhu-memblock" style="zoom:80%;" />
+
+
+
+### 乱序访存机制
+
+
+
+### 访存流水线
+
+
+
+### LSQ
+
+
+
+### MMU
+
+TLB， L2TLB，Repeater，PMP 和 PMA 
+
+为了实现进程隔离，每个进程都会有自己的地址空间，使用的地址都是虚拟地址。
+
+
+
+香山处理器支持 Sv39 分页机制
+
+- 虚拟地址长度为39位，低12比特是页内偏移
+- 中间的27段分为三段，三层页表
+
+
+
+如果ITLB和DTLB miss，会发送请求L2 TLB，当L2 TLB也miss，就会使用Hardware Page Table Walker去访问内存中页表的内容。
+
+L2 TLB主要考虑如何提高并行度和过滤重复的请求。
+
+Repeater是一级TLB到L2 TLB的请求缓冲。
+
+PMP和PMA需要对所有的物理地址访问进行权限检查。
+
+
+
+<img src="images/XiangShan/mmu-overall.webp" alt="mmu-overall" style="zoom:80%;" />
+
+
+
+
+
+
+
+### 数据缓存
+
+
+
+### 访存预测器
+
+
+
+## L2/L3 Cache
+
+
+
+## 其他
+
